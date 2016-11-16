@@ -1,4 +1,9 @@
-﻿param (
+﻿#
+# Call the script like below
+# . .\toggl_to_ets.ps1 -since 2016-11-01 -until 2016-11-15
+#
+
+param (
     [string]$since = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'), 
     [string]$until = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd')
 )
@@ -59,7 +64,7 @@ function Summarize-Entries {
 
     foreach($entry in $time_entries) {
  
-        if($curr_date.Date -gt $entry.start.Date) {
+        if($curr_date.Date -lt $entry.start.Date) {
             $curr_date = $entry.start
         }
         elseif ($curr_date.Date -ne $entry.start.Date) {
@@ -106,16 +111,21 @@ function PrepareTo-ETS {
     )
 
     #Join entries with the same description
-    $sum_entries = Summarize-Entries -time_entries $entries
+    [System.Collections.ArrayList]$sum_entries = Summarize-Entries -time_entries $entries
 
     foreach ($entry in $sum_entries) {
 
         #Convert duration from milliseconds to hours
         $entry.dur = [Math]::Round($entry.dur/3600000, 1)
+        if($entry.dur -eq 0) {
+            Write-Host "Entry was removed as it's too short:" $entry.start ":" $entry.description -ForegroundColor yellow
+        }
+
         $entry.tags = $entry.tags[0]
 
         #Set 'none' tag if nothing was set
         if($entry.tags -eq $null) {
+            Write-Host "Entry hasn't tags: " $entry.start ":" $entry.description -ForegroundColor red
             $entry.tags = 'none'
         }
 
@@ -125,7 +135,8 @@ function PrepareTo-ETS {
         }
     }
 
-    $sum_entries
+    #Return only entries with non zero duration
+    $sum_entries | Where-Object {$_.dur -gt 0}
 }
 
 
@@ -149,7 +160,7 @@ $uri = "https://www.toggl.com/api/v8/clients/" + $client.id + "/projects"
 
 $projects = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
 
-#Convert array of objects to comma separated string on IDs
+#Convert array of objects to comma separated string of IDs
 $project_ids = '';
 foreach ($project in $projects) {
     if($project_ids -ne '') {$project_ids += ','}
@@ -159,12 +170,12 @@ foreach ($project in $projects) {
 #Load time entries
 #Results might be splitted to several pages. So we need a loop to load them all.
 
-$page = 0
+$page = 1
 $loaded = 0
 $time_entries = $null
 
 do {
-    $uri = "https://toggl.com/reports/api/v2/details?workspace_id=" + $client.wid +"&project_ids=" + $project_ids + "&since=" + $since + "&until=" + $until + "&user_agent=api_test&page=" + $page
+    $uri = "https://toggl.com/reports/api/v2/details?workspace_id=" + $client.wid +"&project_ids=" + $project_ids + "&since=" + $since + "&until=" + $until + "&user_agent=api_test&order_field=date&order_desc=off&page=" + $page
     $result = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
     $time_entries +=  $result | Select -ExpandProperty data | ForEach-Object -process {string_to_datetime -obj $_ -prop_names @("start", "end")}
     $loaded += $result.per_page
@@ -172,12 +183,13 @@ do {
 
 } while ($loaded -lt $result.total_count)
 
+
 PrepareTo-ETS -entries $time_entries -irregular_time_start $irregular_time_start -irregular_time_end $irregular_time_end -irregular_time_prefix $irregular_time_prefix | 
     Select -Property @{Name="Project-Task"; Expression={$_.project + "." + $_.tags}}, 
-        @{Name="Effort"; Expression={$_.dur}}, 
-        @{Name="Description"; Expression={$_.description}}, 
-        @{Name="Started Date"; Expression={$_.start.ToString('d')}},
-        @{Name="Completion Date"; Expression={$_.end.ToString('d')}} |
+                     @{Name="Effort"; Expression={$_.dur}}, 
+                     @{Name="Description"; Expression={$_.description}}, 
+                     @{Name="Started Date"; Expression={$_.start.ToString('d')}},
+                     @{Name="Completion Date"; Expression={$_.end.ToString('d')}} |
     Export-Csv -Path $PSScriptRoot\report.csv -notype
 
 #Destroy the session

@@ -4,8 +4,8 @@
 #
 
 param (
-    [string]$since = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'), 
-    [string]$until = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd')
+    [string]$Start = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'), 
+    [string]$End = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd')
 )
 
 #Load configuration from file
@@ -111,7 +111,7 @@ function PrepareTo-ETS {
     )
 
     #Join entries with the same description
-    [System.Collections.ArrayList]$sum_entries = Summarize-Entries -time_entries $entries
+    $sum_entries = Summarize-Entries -time_entries $entries
 
     foreach ($entry in $sum_entries) {
 
@@ -124,13 +124,17 @@ function PrepareTo-ETS {
         $entry.tags = $entry.tags[0]
 
         #Set 'none' tag if nothing was set
-        if($entry.tags -eq $null) {
+        if($null -eq $entry.tags) {
             Write-Host "Entry hasn't tags: " $entry.start ":" $entry.description -ForegroundColor red
             $entry.tags = 'none'
         }
 
         #Prepend tag with "Irregular hours" if needed
-        if(!($entry.tags -contains 'Irregular hours') -and ($entry.start.Hour -ge $irregular_time_start -or $entry.start.Hour -lt $irregular_time_end -or $entry.start.DayofWeek -eq 0 -or $entry.start.DayofWeek -eq 6)) {
+        if(
+            -not ($projects_without_irregular_time -contains $entry.project) -and
+            -not ($entry.tags -like 'Irregular hours*') -and 
+            ($entry.start.Hour -ge $irregular_time_start -or $entry.start.Hour -lt $irregular_time_end -or $entry.start.DayofWeek -eq 0 -or $entry.start.DayofWeek -eq 6)
+        ) {
             $entry.tags = $irregular_time_prefix + $entry.tags
         }
     }
@@ -175,9 +179,9 @@ $loaded = 0
 $time_entries = $null
 
 do {
-    $uri = "https://toggl.com/reports/api/v2/details?workspace_id=" + $client.wid +"&project_ids=" + $project_ids + "&since=" + $since + "&until=" + $until + "&user_agent=api_test&order_field=date&order_desc=off&page=" + $page
+    $uri = "https://toggl.com/reports/api/v2/details?workspace_id=" + $client.wid +"&project_ids=" + $project_ids + "&since=" + $Start + "&until=" + $End + "&user_agent=api_test&order_field=date&order_desc=off&page=" + $page
     $result = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
-    $time_entries +=  $result | Select -ExpandProperty data | ForEach-Object -process {string_to_datetime -obj $_ -prop_names @("start", "end")}
+    $time_entries +=  $result | Select-Object -ExpandProperty data | ForEach-Object -process {string_to_datetime -obj $_ -prop_names @("start", "end")}
     $loaded += $result.per_page
     $page++
 
@@ -185,7 +189,7 @@ do {
 
 
 PrepareTo-ETS -entries $time_entries -irregular_time_start $irregular_time_start -irregular_time_end $irregular_time_end -irregular_time_prefix $irregular_time_prefix | 
-    Select -Property @{Name="Project-Task"; Expression={$_.project + "." + $_.tags}}, 
+    Select-Object -Property @{Name="Project-Task"; Expression={$_.project + "." + $_.tags}}, 
                      @{Name="Effort"; Expression={$_.dur}}, 
                      @{Name="Description"; Expression={$_.description}}, 
                      @{Name="Started Date"; Expression={$_.start.ToString('d')}},

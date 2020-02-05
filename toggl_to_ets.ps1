@@ -4,7 +4,7 @@
 #
 
 param (
-    [string]$Start = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'), 
+    [string]$Start = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'),
     [string]$End = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd')
 )
 
@@ -14,36 +14,36 @@ param (
 # Function accepts uername and password, returns a hash to be used as a
 #  -Headers parameter for an Invoke-RestMethod or Invoke-WebRequest
 function New-BasicAuthHeader {
-  [cmdletbinding()]
-  param (
-    [Parameter(Mandatory=$true)] $Username,
-    [Parameter(Mandatory=$true)] $Password
-  )
-  # Doing this step-by-step for illustration; no reason not to reduce it to fewer steps
-  # In fact, you can uncomment the following line and remove all the following lines in the function
-  # @{ Authorization = "Basic {0}" -f [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $Username,$Password))) }
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory = $true)] $Username,
+        [Parameter(Mandatory = $true)] $Password
+    )
+    # Doing this step-by-step for illustration; no reason not to reduce it to fewer steps
+    # In fact, you can uncomment the following line and remove all the following lines in the function
+    # @{ Authorization = "Basic {0}" -f [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $Username,$Password))) }
 
-  # Make "username:password" string
-  $UserNameColonPassword = "{0}:{1}" -f $Username,$Password
-  # Could also be accomplished like:
-  # $UserNameColonPassword = "$($Username):$($Password)"
+    # Make "username:password" string
+    $UserNameColonPassword = "{0}:{1}" -f $Username, $Password
+    # Could also be accomplished like:
+    # $UserNameColonPassword = "$($Username):$($Password)"
 
-  # Ensure it's ASCII-encoded
-  $InAscii = [Text.Encoding]::ASCII.GetBytes($UserNameColonPassword)
+    # Ensure it's ASCII-encoded
+    $InAscii = [Text.Encoding]::ASCII.GetBytes($UserNameColonPassword)
 
-  # Now Base64-encode:
-  $InBase64 = [Convert]::ToBase64String($InAscii)
+    # Now Base64-encode:
+    $InBase64 = [Convert]::ToBase64String($InAscii)
 
-  # The value of the Authorization header is "Basic " and then the Base64-encoded username:password
-  $Authorization = "Basic {0}" -f $InBase64
-  # Could also be done as:
-  # $Authorization = "Basic $InBase64"
+    # The value of the Authorization header is "Basic " and then the Base64-encoded username:password
+    $Authorization = "Basic {0}" -f $InBase64
+    # Could also be done as:
+    # $Authorization = "Basic $InBase64"
 
-  #This hash will be returned as the value of the function and is the Powershell version of the basic auth header
-  $BasicAuthHeader = @{ Authorization = $Authorization }
+    #This hash will be returned as the value of the function and is the Powershell version of the basic auth header
+    $BasicAuthHeader = @{ Authorization = $Authorization }
 
-  # Return the header
-  $BasicAuthHeader
+    # Return the header
+    $BasicAuthHeader
 }
 
 #
@@ -51,7 +51,7 @@ function New-BasicAuthHeader {
 #
 function Summarize-Entries {
     param(
-        $time_entries        
+        $time_entries
     )
 
     #Convert regular array to Collection as it should work faster
@@ -62,19 +62,19 @@ function Summarize-Entries {
 
     $sum_entries = New-Object System.Collections.ArrayList
 
-    foreach($entry in $time_entries) {
- 
-        if($curr_date.Date -lt $entry.start.Date) {
+    foreach ($entry in $time_entries) {
+
+        if ($curr_date.Date -lt $entry.start.Date) {
             $curr_date = $entry.start
         }
         elseif ($curr_date.Date -ne $entry.start.Date) {
-            Write-Host "Exiting with code 365: unexpected date order" 
+            Write-Host "Exiting with code 365: unexpected date order"
             exit 365
         }
 
-        $same_task = $sum_entries.Where({$_.description -eq $entry.description -and $_.start.Date -eq $entry.start.Date}, 'First')
-         
-        if($same_task) {
+        $same_task = $sum_entries.Where( { $_.description -eq $entry.description -and $_.start.Date -eq $entry.start.Date }, 'First')
+
+        if ($same_task) {
             $same_task[0].dur += $entry.dur
         }
         else {
@@ -90,11 +90,11 @@ function Summarize-Entries {
 #
 function string_to_datetime {
     param(
-        [Parameter(Mandatory=$true, ValueFromPipeline = $true)][System.Object] $obj,
-        [Parameter(Mandatory=$true)][System.String[]] $prop_names
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)][System.Object] $obj,
+        [Parameter(Mandatory = $true)][System.String[]] $prop_names
     )
 
-    foreach($prop in $prop_names) {
+    foreach ($prop in $prop_names) {
         $obj.$prop = [datetime]::ParseExact($obj.$prop, 'yyyy-MM-ddTHH:mm:sszzz', [System.Globalization.CultureInfo]::CurrentCulture)
     }
 
@@ -104,10 +104,9 @@ function string_to_datetime {
 
 function PrepareTo-ETS {
     param(
-        [Parameter(Mandatory=$true, ValueFromPipeline = $true)][System.Object[]] $entries,
-        [Parameter(Mandatory=$true)]$irregular_time_start,
-        [Parameter(Mandatory=$true)]$irregular_time_end,
-        [Parameter(Mandatory=$true)]$irregular_time_prefix
+        [Parameter(Mandatory = $true)]
+        [System.Object[]]
+        $entries
     )
 
     #Join entries with the same description
@@ -116,58 +115,64 @@ function PrepareTo-ETS {
     foreach ($entry in $sum_entries) {
 
         #Convert duration from milliseconds to hours
-        $entry.dur = [Math]::Round($entry.dur/3600000, 1)
-        if($entry.dur -eq 0) {
+        $entry.dur = [Math]::Round($entry.dur / 3600000, $config.effort_fractional_digits)
+        if ($entry.dur -eq 0) {
             Write-Host "Entry was removed as it's too short:" $entry.start ":" $entry.description -ForegroundColor yellow
         }
 
         $entry.tags = $entry.tags[0]
 
         #Set 'none' tag if nothing was set
-        if($null -eq $entry.tags) {
+        if ($null -eq $entry.tags) {
             Write-Host "Entry hasn't tags: " $entry.start ":" $entry.description -ForegroundColor red
             $entry.tags = 'none'
         }
 
         #Prepend tag with "Irregular hours" if needed
-        if(
-            -not ($projects_without_irregular_time -contains $entry.project) -and
-            -not ($entry.tags -like 'Irregular hours*') -and 
-            ($entry.start.Hour -ge $irregular_time_start -or $entry.start.Hour -lt $irregular_time_end -or $entry.start.DayofWeek -eq 0 -or $entry.start.DayofWeek -eq 6)
+        if (
+            -not ($config.projects_without_irregular_time -contains $entry.project) -and
+            -not ($entry.tags -like "$($config.irregular_time_prefix)*") -and
+            ($entry.start.Hour -ge $config.irregular_time_start -or $entry.start.Hour -lt $config.irregular_time_end -or $entry.start.DayofWeek -eq 0 -or $entry.start.DayofWeek -eq 6)
         ) {
-            $entry.tags = $irregular_time_prefix + $entry.tags
+            $entry.tags = $config.irregular_time_prefix + $entry.tags
+        }
+
+        # If the entry is related to a project, which name in Toggl differs from the one in ETS,
+        # change the project name accordingly.
+        if ( $entry.project -in $config.project_prefix.Keys ) {
+            $entry.project = $config.project_prefix[$entry.project]
         }
     }
 
     #Return only entries with non zero duration
-    $sum_entries | Where-Object {$_.dur -gt 0}
+    $sum_entries | Where-Object { $_.dur -gt 0 }
 }
 
 
 #####################################################################
-#                           Main code 
+#                           Main code
 #####################################################################
 
-$Headers = New-BasicAuthHeader -Username $api_token -Password "api_token"
+$Headers = New-BasicAuthHeader -Username $config.api_token -Password "api_token"
 
 #Authentication and session creation
-Invoke-RestMethod "https://www.toggl.com/api/v8/sessions" -Method Post -Headers $Headers -SessionVariable toggl_api_session -Verbose > $null
+Invoke-RestMethod "$($config.toggl_api_uri)/sessions" -Method Post -Headers $Headers -SessionVariable toggl_api_session -Verbose > $null
 
 #Get the client data by client name
-$client = Invoke-RestMethod "https://www.toggl.com/api/v8/me?with_related_data=true" -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose | 
-            Select-Object -ExpandProperty data | 
-            Select-Object -ExpandProperty clients |
-            Where-Object {$_.name -eq $client_name}
+$client = Invoke-RestMethod "$($config.toggl_api_uri)/me?with_related_data=true" -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose |
+    Select-Object -ExpandProperty data |
+        Select-Object -ExpandProperty clients |
+            Where-Object { $_.name -eq $config.client_name }
 
 #Get projects related to the given client
-$uri = "https://www.toggl.com/api/v8/clients/" + $client.id + "/projects"
+$uri = "$($config.toggl_api_uri)/clients/" + $client.id + "/projects"
 
 $projects = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
 
 #Convert array of objects to comma separated string of IDs
 $project_ids = '';
 foreach ($project in $projects) {
-    if($project_ids -ne '') {$project_ids += ','}
+    if ($project_ids -ne '') { $project_ids += ',' }
     $project_ids += $project.id
 }
 
@@ -179,23 +184,31 @@ $loaded = 0
 $time_entries = $null
 
 do {
-    $uri = "https://toggl.com/reports/api/v2/details?workspace_id=" + $client.wid +"&project_ids=" + $project_ids + "&since=" + $Start + "&until=" + $End + "&user_agent=api_test&order_field=date&order_desc=off&page=" + $page
+    $uri = "$($config.toggl_reports_api_uri)/details?workspace_id=" + $client.wid + "&project_ids=" + $project_ids + "&since=" + $Start + "&until=" + $End + "&user_agent=api_test&order_field=date&order_desc=off&page=" + $page
     $result = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
-    $time_entries +=  $result | Select-Object -ExpandProperty data | ForEach-Object -process {string_to_datetime -obj $_ -prop_names @("start", "end")}
+    $time_entries += $result | Select-Object -ExpandProperty data | ForEach-Object -process { string_to_datetime -obj $_ -prop_names @("start", "end") }
     $loaded += $result.per_page
     $page++
 
 } while ($loaded -lt $result.total_count)
 
+$SelectObjectArgs = @{
+    'Property' = @(
+        @{Name = "Project-Task"; Expression = { $_.project + "." + $_.tags } },
+        @{Name = "Effort"; Expression = { $_.dur } },
+        @{Name = "Description"; Expression = { $_.description } },
+        @{Name = "Started Date"; Expression = { $_.start.ToString('d') } },
+        @{Name = "Completion Date"; Expression = { $_.end.ToString('d') } }
+    )
+}
 
-PrepareTo-ETS -entries $time_entries -irregular_time_start $irregular_time_start -irregular_time_end $irregular_time_end -irregular_time_prefix $irregular_time_prefix | 
-    Select-Object -Property @{Name="Project-Task"; Expression={$_.project + "." + $_.tags}}, 
-                     @{Name="Effort"; Expression={$_.dur}}, 
-                     @{Name="Description"; Expression={$_.description}}, 
-                     @{Name="Started Date"; Expression={$_.start.ToString('d')}},
-                     @{Name="Completion Date"; Expression={$_.end.ToString('d')}} |
-    Export-Csv -Path $PSScriptRoot\report.csv -notype
+PrepareTo-ETS -entries $time_entries |
+    Select-Object @SelectObjectArgs |
+        Export-Csv -Path $PSScriptRoot\report.csv -notype
 
 #Destroy the session
 #TODO: I suspect this doesn't really kill the session
-Invoke-RestMethod "https://www.toggl.com/api/v8/sessions" -Method Delete -WebSession $toggl_api_session -Verbose > $null
+Invoke-RestMethod "$($config.toggl_api_uri)/sessions" -Method Delete -WebSession $toggl_api_session -Verbose > $null
+
+# Open generated file
+Invoke-Item -Path "$PSScriptRoot\report.csv"

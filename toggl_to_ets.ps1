@@ -112,6 +112,8 @@ function PrepareTo-ETS {
     #Join entries with the same description
     $sum_entries = Summarize-Entries -time_entries $entries
 
+    $template_tasks = Read-EtsExcelTemplate
+
     foreach ($entry in $sum_entries) {
 
         #Convert duration from milliseconds to hours
@@ -142,12 +144,36 @@ function PrepareTo-ETS {
         if ( $entry.project -in $config.project_prefix.Keys ) {
             $entry.project = $config.project_prefix[$entry.project]
         }
+
+        # Workaround for the ETS system bug: no way to delete trailing spaces.
+        $project_task = $template_tasks -like "*$($entry.project).$($entry.tags)*"
+        Add-Member -InputObject $entry -NotePropertyName 'project_task' -NotePropertyValue $project_task
     }
 
     #Return only entries with non zero duration
     $sum_entries | Where-Object { $_.dur -gt 0 }
 }
 
+function Read-EtsExcelTemplate
+{
+    $excel = New-Object -Com Excel.Application
+    $wb = $excel.Workbooks.Open($config.excel_template_path)
+
+    $sh = $wb.Sheets | Where-Object -Property "Name" -EQ "Projects"
+
+    $Tasks = @()
+    $i = 2          # Start from the second line, as the first one is a header
+
+    do
+    {
+        $Tasks += $sh.Cells.Item($i, 1).Value2
+        $i++
+    } until ($null -eq $sh.Cells.Item($i, 1).Value2)
+
+    $excel.Workbooks.Close()
+
+    return $Tasks
+}
 
 #####################################################################
 #                           Main code
@@ -194,7 +220,7 @@ do {
 
 $SelectObjectArgs = @{
     'Property' = @(
-        @{Name = "Project-Task"; Expression = { $_.project + "." + $_.tags } },
+        @{Name = "Project-Task"; Expression = { $_.project_task } },
         @{Name = "Effort"; Expression = { $_.dur } },
         @{Name = "Description"; Expression = { $_.description } },
         @{Name = "Started Date"; Expression = { $_.start.ToString('d') } },

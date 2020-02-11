@@ -14,4 +14,6 @@
     'project_prefix'                  = @{
         'Internal'     = 'Internal  Project'
     }
+
+    'excel_template_path' = "$PSScriptRoot\template.xlsx"
 }

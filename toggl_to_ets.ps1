@@ -5,7 +5,7 @@
 
 param (
     [string]$Start = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'),
-    [string]$End = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd')
+    [string]$End = $Start
 )
 
 #Load configuration from file
@@ -147,6 +147,11 @@ function PrepareTo-ETS {
 
         # Workaround for the ETS system bug: no way to delete trailing spaces.
         $project_task = $template_tasks -like "*$($entry.project).$($entry.tags)*"
+
+        if ( $project_task.Count -eq 0) {
+            Write-Host "Entry has non-existent Project-Task assigned: " $entry.start ":" $entry.description  "|" $entry.project":"$entry.tags -ForegroundColor red
+        }
+
         Add-Member -InputObject $entry -NotePropertyName 'project_task' -NotePropertyValue $project_task
     }
 

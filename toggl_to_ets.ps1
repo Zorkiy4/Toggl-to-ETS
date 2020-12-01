@@ -146,9 +146,16 @@ function PrepareTo-ETS {
         }
 
         # Workaround for the ETS system bug: no way to delete trailing spaces.
-        $project_task = $template_tasks -like "*$($entry.project).$($entry.tags)*"
-
-        if ( $project_task.Count -eq 0) {
+        $project_task = $null
+        foreach ($task in $template_tasks)
+        {
+            if (($task -replace " ", "") -eq ("$($entry.project).$($entry.tags)" -replace " ", ""))
+            {
+                $project_task = $task
+                break
+            }
+        }
+        if ([string]::IsNullOrEmpty($project_task)) {
             Write-Host "Entry has non-existent Project-Task assigned: " $entry.start ":" $entry.description  "|" $entry.project":"$entry.tags -ForegroundColor red
         }
 

@@ -5,7 +5,8 @@
 
 param (
     [string]$Start = [DateTime]::Today.AddDays(-1).ToString('yyyy-MM-dd'),
-    [string]$End = $Start
+    [string]$End = $Start,
+    [DateTime[]]$IrregularDays = @()
 )
 
 #Load configuration from file
@@ -134,7 +135,12 @@ function PrepareTo-ETS {
         if (
             -not ($config.projects_without_irregular_time -contains $entry.project) -and
             -not ($entry.tags -like "$($config.irregular_time_prefix)*") -and
-            ($entry.start.Hour -ge $config.irregular_time_start -or $entry.start.Hour -lt $config.irregular_time_end -or $entry.start.DayofWeek -eq 0 -or $entry.start.DayofWeek -eq 6)
+            (
+                $entry.start.Hour -ge $config.irregular_time_start -or
+                $entry.start.Hour -lt $config.irregular_time_end -or
+                $entry.start.DayofWeek -in @(0,6) -or
+                $entry.start.Date -in $IrregularDays
+            )
         ) {
             $entry.tags = $config.irregular_time_prefix + $entry.tags
         }

@@ -1,6 +1,6 @@
 ﻿$config = @{
-    'toggl_api_uri'                   = 'https://www.toggl.com/api/v8'
-    'toggl_reports_api_uri'           = 'https://toggl.com/reports/api/v2'
+    'toggl_api_uri'                   = 'https://api.track.toggl.com/api/v8'
+    'toggl_reports_api_uri'           = 'https://api.track.toggl.com/reports/api/v2'
     'api_token'                       = ""
 
     'client_name'                     = "Akvelon"

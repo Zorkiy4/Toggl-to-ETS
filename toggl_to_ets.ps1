@@ -95,8 +95,15 @@ function string_to_datetime {
         [Parameter(Mandatory = $true)][System.String[]] $prop_names
     )
 
+    if($PSVersionTable.PSVersion.Major -lt 7) {
+        [System.Globalization.CultureInfo] $provider = [System.Globalization.CultureInfo]::CurrentCulture
+    }
+    else {
+        [System.Globalization.CultureInfo] $provider = [System.Globalization.InvariantCulture]::CurrentCulture
+    }  
+
     foreach ($prop in $prop_names) {
-        $obj.$prop = [datetime]::ParseExact($obj.$prop, 'yyyy-MM-ddTHH:mm:sszzz', [System.Globalization.CultureInfo]::CurrentCulture)
+        $obj.$prop = [datetime]::ParseExact($obj.$prop, 'yyyy-MM-ddTHH:mm:sszzz', $provider)
     }
 
     #Return object
@@ -230,7 +237,13 @@ $time_entries = $null
 do {
     $uri = "$($config.toggl_reports_api_uri)/details?workspace_id=" + $client.wid + "&project_ids=" + $project_ids + "&since=" + $Start + "&until=" + $End + "&user_agent=api_test&order_field=date&order_desc=off&page=" + $page
     $result = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
-    $time_entries += $result | Select-Object -ExpandProperty data | ForEach-Object -process { string_to_datetime -obj $_ -prop_names @("start", "end") }
+    # For PowerShell 6 additional conversion is required
+    if($PSVersionTable.PSVersion.Major -lt 7) {
+        $time_entries += $result | Select-Object -ExpandProperty data | ForEach-Object -process { string_to_datetime -obj $_ -prop_names @("start", "end") }
+    }
+    else {
+        $time_entries += $result | Select-Object -ExpandProperty data
+    }
     $loaded += $result.per_page
     $page++
 

@@ -73,7 +73,12 @@ function Summarize-Entries {
             exit 365
         }
 
-        $same_task = $sum_entries.Where( { $_.description -eq $entry.description -and $_.start.Date -eq $entry.start.Date }, 'First')
+        $same_task = $sum_entries.Where(
+            { 
+                $_.description -eq $entry.description -and 
+                $_.start.Date -eq $entry.start.Date -and 
+                $_.tags[0] -eq $entry.tags[0]
+            }, 'First')
 
         if ($same_task) {
             $same_task[0].dur += $entry.dur

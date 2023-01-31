@@ -15,5 +15,7 @@
         'Internal'     = 'Internal  Project'
     }
 
+    'max_entry_duration'              = 4
+
     'excel_template_path' = "$PSScriptRoot\template.xlsx"
 }

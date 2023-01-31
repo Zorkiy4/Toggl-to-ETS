@@ -129,6 +129,9 @@ function PrepareTo-ETS {
         if ($entry.dur -eq 0) {
             Write-Host "Entry was removed as it's too short:" $entry.start ":" $entry.description -ForegroundColor yellow
         }
+        elseif ($entry.dur -gt $config.max_entry_duration) {
+            Write-Host "Entry duration is beyond allowed range ($($config.max_entry_duration) hrs max): $($entry.start) : $($entry.description) : [$($entry.dur) hrs]" -ForegroundColor red
+        }
 
         $entry.tags = $entry.tags[0]
 

@@ -215,18 +215,17 @@ function Read-EtsExcelTemplate
 $Headers = New-BasicAuthHeader -Username $config.api_token -Password "api_token"
 
 #Authentication and session creation
-Invoke-RestMethod "$($config.toggl_api_uri)/sessions" -Method Post -Headers $Headers -SessionVariable toggl_api_session -Verbose > $null
+Invoke-RestMethod "$($config.toggl_api_uri)/me" -Method Get -Headers $Headers -SessionVariable toggl_api_session -Verbose > $null
 
 #Get the client data by client name
-$client = Invoke-RestMethod "$($config.toggl_api_uri)/me?with_related_data=true" -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose |
-    Select-Object -ExpandProperty data |
-        Select-Object -ExpandProperty clients |
-            Where-Object { $_.name -eq $config.client_name }
+$client = (Invoke-RestMethod "$($config.toggl_api_uri)/workspaces/$($config.workspace_id)/clients" -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose) |
+    Where-Object { $_.name -eq $config.client_name }
 
 #Get projects related to the given client
-$uri = "$($config.toggl_api_uri)/clients/" + $client.id + "/projects"
+$uri = "$($config.toggl_api_uri)/workspaces/$($config.workspace_id)/projects"
 
-$projects = Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose
+$projects = (Invoke-RestMethod $uri -Method Get -ContentType "application/json" -WebSession $toggl_api_session -Verbose) |
+    Where-Object { $_.client_id -eq $client.id -and $_.active -eq $true}
 
 #Convert array of objects to comma separated string of IDs
 $project_ids = '';
@@ -270,10 +269,6 @@ $SelectObjectArgs = @{
 PrepareTo-ETS -entries $time_entries |
     Select-Object @SelectObjectArgs |
         Export-Csv -Path $PSScriptRoot\report.csv -notype
-
-#Destroy the session
-#TODO: I suspect this doesn't really kill the session
-Invoke-RestMethod "$($config.toggl_api_uri)/sessions" -Method Delete -WebSession $toggl_api_session -Verbose > $null
 
 # Open generated file
 Invoke-Item -Path "$PSScriptRoot\report.csv"

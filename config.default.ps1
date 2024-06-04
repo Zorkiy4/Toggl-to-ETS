@@ -1,7 +1,9 @@
 ﻿$config = @{
-    'toggl_api_uri'                   = 'https://api.track.toggl.com/api/v8'
+    'toggl_api_uri'                   = 'https://api.track.toggl.com/api/v9'
     'toggl_reports_api_uri'           = 'https://api.track.toggl.com/reports/api/v2'
     'api_token'                       = ""
+
+    'workspace_id'                    = ''
 
     'client_name'                     = "Akvelon"
     'irregular_time_start'            = "21"
